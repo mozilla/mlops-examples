@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>bugbug ui</title>
+    <link href="css/page.css" rel="stylesheet" type="text/css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>➲</text></svg>"
+    />
+  </head>
+
+  <body class="loading-data">
+    <h1>bugbug ui</h1>
+    <div id="links">
+      <a href="index.html">Changes</a> | <a href="feature.html">Feature</a> |
+      <a href="release.html">Release</a> | <a href="team.html">Team</a> |
+      <a href="testing.html">Testing Policy</a> | <a href="bug.html">Bug</a>
+    </div>
+    <div class="loader"></div>
+    <div id="grid">
+      <aside>
+        <div id="filter-container">
+          <h3>Filters</h3>
+          <label
+            >Bug
+            <input
+              type="text"
+              name="bugID"
+              id="bugID"
+              placeholder="Enter bug ID"
+            />
+          </label>
+        </div>
+      </aside>
+      <main>
+        <details id="bug-details">
+          <summary>
+            <h3>Bug List</h3>
+          </summary>
+
+          <table id="table" class="table table-bordered table-hover">
+            <thead>
+              <tr>
+                <th scope="col">Bug</th>
+                <th scope="col">Date</th>
+                <th scope="col">Testing Tags</th>
+                <th scope="col">Coverage</th>
+                <th scope="col">Riskiness</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </details>
+      </main>
+    </div>
+
+    <script src="bug.js" type="module"></script>
+  </body>
+</html>

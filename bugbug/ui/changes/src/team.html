@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>bugbug ui - Team</title>
+    <link href="css/page.css" rel="stylesheet" type="text/css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>➲</text></svg>"
+    />
+  </head>
+
+  <body class="loading-data">
+    <h1>bugbug ui</h1>
+    <div id="links">
+      <a href="index.html">Changes</a> | <a href="feature.html">Feature</a> |
+      <a href="release.html">Release</a> | <a href="team.html">Team</a> |
+      <a href="testing.html">Testing Policy</a> | <a href="bug.html">Bug</a>
+    </div>
+    <div class="loader"></div>
+    <div id="grid">
+      <aside>
+        <div id="filter-container">
+          <label
+            >Fixed after<br />
+            <input id="fixStartDate" type="date" />
+          </label>
+          <label
+            >Opened after<br />
+            <input id="createStartDate" type="date" /> </label
+          ><br />
+          <label
+            >Teams
+            <select name="teams" id="teams" multiple></select> </label
+          ><br />
+          <label
+            >Components
+            <select name="components" id="components" multiple></select> </label
+          ><br />
+          <label
+            >Bug Types
+            <select name="types" id="types" multiple></select> </label
+          ><br />
+          <label>
+            <input
+              type="checkbox"
+              id="regressionsOnly"
+              name="regressionsOnly"
+            />Restrict to regressions<br /> </label
+          ><br />
+          <select
+            name="types"
+            id="types"
+            multiple
+            style="display: none"
+          ></select>
+        </div>
+      </aside>
+      <main>
+        <div id="grouping">
+          <label
+            ><input
+              name="grouping"
+              type="radio"
+              value="weekly"
+              checked
+            />Weekly</label
+          >
+          <label
+            ><input
+              name="grouping"
+              type="radio"
+              value="monthly"
+            />Monthly</label
+          >
+          <label
+            ><input name="grouping" type="radio" value="by_release" />By
+            Release</label
+          >
+        </div>
+        <div id="result-graphs"></div>
+        <div id="dependencyType">
+          <label
+            ><input
+              name="dependencyType"
+              type="radio"
+              value="regressions"
+              checked
+            />Regressions</label
+          >
+          <label
+            ><input
+              name="dependencyType"
+              type="radio"
+              value="test-failures"
+            />Test failures</label
+          >
+        </div>
+        <div id="dependency-section"></div>
+      </main>
+    </div>
+
+    <script src="team.js" type="module"></script>
+  </body>
+</html>

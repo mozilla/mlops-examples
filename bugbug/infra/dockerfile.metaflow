@@ -1,0 +1,12 @@
+FROM --platform=linux/amd64 us-central1-docker.pkg.dev/moz-fx-dev-ctroy-ml-ops-spikes/bugbug-training-runs-mlflow/bugbug_training_base
+
+RUN pip install --disable-pip-version-check --quiet --no-cache-dir metaflow
+RUN pip install --no-cache-dir --disable-pip-version-check google-cloud-storage google-auth simple-gcp-object-downloader
+RUN mkdir /logs && chown 1000 /logs
+RUN mkdir /metaflow && chown 1000 /metaflow
+ENV HOME=/metaflow
+WORKDIR /metaflow
+
+USER 1000
+
+ENV PYTHONPATH "${PYTHONPATH}:/root"

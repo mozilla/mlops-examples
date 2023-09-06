@@ -1,0 +1,23 @@
+{
+  "name": "changes",
+  "version": "1.0.0",
+  "description": "To update Temporal polyfill:",
+  "private": true,
+  "scripts": {
+    "dev": "npx snowpack dev",
+    "release": "npx snowpack build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "prettier": "^3.0.0",
+    "snowpack": "^3.8.8"
+  },
+  "dependencies": {
+    "@js-temporal/polyfill": "^0.4.4",
+    "apexcharts": "^3.41.0",
+    "localforage": "^1.10.0"
+  }
+}

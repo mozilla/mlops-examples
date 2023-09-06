@@ -1,0 +1,118 @@
+version: 1
+tasks:
+  $let:
+    repository: https://github.com/mozilla/bugbug
+  in:
+    - ID: landings-risk-report-generator
+      created: { $fromNow: "" }
+      deadline: { $fromNow: "2 hours" }
+      expires: { $fromNow: "2 weeks" }
+      provisionerId: proj-bugbug
+      workerType: compute-large
+      payload:
+        features:
+          taskclusterProxy: true
+        maxRunTime: 7200
+        image: mozilla/bugbug-commit-retrieval:${version}
+        env:
+          TC_SECRET_ID: project/bugbug/production
+        command:
+          - bugbug-generate-landings-risk-report
+          - /cache/mozilla-central
+          - --days=365
+
+        artifacts:
+          public/landings_by_date.json:
+            path: /landings_by_date.json
+            type: file
+          public/component_connections.json:
+            path: /component_connections.json
+            type: file
+          public/component_test_stats.json:
+            path: /component_test_stats.json
+            type: file
+          public/test_info.json.zst:
+            path: /data/test_info.json.zst
+            type: file
+          public/test_info.json.version:
+            path: /data/test_info.json.version
+            type: file
+        cache:
+          bugbug-mercurial-repository: /cache
+      scopes:
+        - docker-worker:cache:bugbug-mercurial-repository
+        - generic-worker:cache:bugbug-mercurial-repository
+        - secrets:get:project/bugbug/production
+      routes:
+        - notify.email.release-mgmt-analysis@mozilla.com.on-failed
+        - notify.irc-channel.#bugbug.on-failed
+        - index.project.bugbug.landings_risk_report.latest
+      metadata:
+        name: BugBug landings risk report
+        description: BugBug landings risk report
+        owner: release-mgmt-analysis@mozilla.com
+        source: https://github.com/mozilla/bugbug/raw/${version}/infra/landings-pipeline.yml
+
+    - ID: frontend-build
+      created: { $fromNow: "" }
+      deadline: { $fromNow: "1 hour" }
+      expires: { $fromNow: "2 weeks" }
+      provisionerId: proj-bugbug
+      workerType: batch
+      dependencies:
+        - landings-risk-report-generator
+      payload:
+        maxRunTime: 3600
+        image: node:lts
+        command:
+          - "/bin/sh"
+          - "-lcxe"
+          - "git clone --quiet ${repository} /bugbug &&
+            cd /bugbug &&
+            git -c advice.detachedHead=false checkout ${version} &&
+            cd ui/changes &&
+            npm install --no-progress &&
+            npm run release"
+        artifacts:
+          public/frontend:
+            path: /bugbug/ui/changes/dist
+            type: directory
+      routes:
+        - notify.email.release-mgmt-analysis@mozilla.com.on-failed
+        - notify.irc-channel.#bugbug.on-failed
+        - index.project.bugbug.landings_risk_report_ui.latest
+      metadata:
+        name: bugbug ui build
+        description: bugbug ui build
+        owner: mcastelluccio@mozilla.com
+        source: https://github.com/mozilla/bugbug/raw/${version}/infra/landings-pipeline.yml
+
+    - ID: frontend-deploy
+      created: { $fromNow: "" }
+      deadline: { $fromNow: "1 hour" }
+      expires: { $fromNow: "2 weeks" }
+      provisionerId: proj-bugbug
+      workerType: batch
+      dependencies:
+        - frontend-build
+      payload:
+        features:
+          taskclusterProxy: true
+        maxRunTime: 3600
+        image: mozilla/taskboot:0.3.6
+        env:
+          TASKCLUSTER_SECRET: project/bugbug/deploy
+        command:
+          - taskboot
+          - deploy-s3
+          - --artifact-folder
+          - public/frontend
+          - --bucket
+          - "bugbug-production-bugbug-static-website-static-website"
+      scopes:
+        - secrets:get:project/bugbug/deploy
+      metadata:
+        name: bugbug ui deploy
+        description: bugbug ui deploy
+        owner: mcastelluccio@mozilla.com
+        source: https://github.com/mozilla/bugbug/raw/${version}/infra/landings-pipeline.yml

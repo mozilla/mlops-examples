@@ -1,0 +1,7 @@
+[extensions]
+purge =
+strip =
+robustcheckout = /version-control-tools/hgext/robustcheckout/__init__.py
+hgmo = /version-control-tools/hgext/hgmo
+pushlog = /version-control-tools/hgext/pushlog
+mozext = /version-control-tools/hgext/mozext
