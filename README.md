@@ -6,10 +6,11 @@ A collection of experimental integrations for mozilla ML projects.
 ## Getting started with conda environments (used by Metaflow)
 
 - Install `conda`
-  - On mac run `brew install conda`
+  - On mac run `brew install --cask anaconda`
 - Add the environment variable `CONDA_CHANNELS=anaconda,conda-forge`
 - Run `conda env create -f environment-mlops.yml`
 - Run `conda activate mlops-metaflow-1`
+- Add path with `export PYTHONPATH="$(pwd)/bugbug"`
 
 ### Running on Apple Silicon
 
