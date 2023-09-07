@@ -24,6 +24,12 @@ from sklearn.metrics import precision_recall_fscore_support
 from sklearn.model_selection import cross_validate, train_test_split
 from tabulate import tabulate
 
+import wandb
+from wandb.xgboost import WandbCallback
+import scipy.sparse as sparse
+import pandas as pd
+
+
 from bugbug import bugzilla, db, repository
 from bugbug.github import Github
 from bugbug.nlp import SpacyVectorizer
@@ -34,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 def classification_report_imbalanced_values(
-    y_true, y_pred, labels, target_names=None, sample_weight=None, digits=2, alpha=0.1
+        y_true, y_pred, labels, target_names=None, sample_weight=None, digits=2, alpha=0.1
 ):
     """Build a classification report based on metrics used with imbalanced dataset.
 
@@ -54,6 +60,9 @@ def classification_report_imbalanced_values(
     precision, recall, f1, support = precision_recall_fscore_support(
         y_true, y_pred, labels=labels, average=None, sample_weight=sample_weight
     )
+    wandb.summary["Custom Mozilla String Metric"] = "Hello"
+    wandb.summary["Custom Mozilla Numeric Metric"] = 0.77
+
     # Specificity
     specificity = specificity_score(
         y_true, y_pred, labels=labels, average=None, sample_weight=sample_weight
@@ -153,14 +162,15 @@ class Model:
 
         self.entire_dataset_training = False
 
+        self.reporting_params = {}
+
         # DBs required for training.
         self.training_dbs: list[str] = []
         # DBs and DB support files required at runtime.
         self.eval_dbs: dict[str, tuple[str, ...]] = {}
 
-
     def download_eval_dbs(
-        self, extract: bool = True, ensure_exist: bool = True
+            self, extract: bool = True, ensure_exist: bool = True
     ) -> None:
         for eval_db, eval_files in self.eval_dbs.items():
             for eval_file in eval_files:
@@ -168,8 +178,8 @@ class Model:
                     assert db.download(eval_file, extract=extract) or not ensure_exist
                 else:
                     assert (
-                        db.download_support_file(eval_db, eval_file, extract=extract)
-                        or not ensure_exist
+                            db.download_support_file(eval_db, eval_file, extract=extract)
+                            or not ensure_exist
                     )
 
     def get_feature_names(self):
@@ -295,11 +305,11 @@ class Model:
         for i in range(0, len(top_feature_names), COLUMNS):
             table = []
             for item in shap_val:
-                table.append(item[i : i + COLUMNS])
+                table.append(item[i: i + COLUMNS])
             print(
                 tabulate(
                     table,
-                    headers=(["classes"] + top_feature_names)[i : i + COLUMNS],
+                    headers=(["classes"] + top_feature_names)[i: i + COLUMNS],
                     tablefmt="grid",
                 ),
                 end="\n\n",
@@ -338,6 +348,16 @@ class Model:
         pass
 
     def setup_data_and_splits(self, limit=None):
+        self.wandb_run = wandb.init(
+            # set the wandb project where this run will be logged
+            project="bugbug-prototype",
+
+            # track hyperparameters and run metadata
+            config={
+                "importance_cutoff": 0.15
+            }
+        )
+
         classes, self.class_names = self.get_labels()
         self.class_names = sort_class_names(self.class_names)
 
@@ -367,6 +387,26 @@ class Model:
         self.X_test = X_test
         self.y_train = y_train
         self.y_test = y_test
+
+        sparse.save_npz("X_train", X_train)
+        artifact = wandb.Artifact(name="X_train", type="data")
+        artifact.add_file("X_train.npz")
+        self.wandb_run.log_artifact(artifact)
+
+        sparse.save_npz("X_test", X_test)
+        artifact = wandb.Artifact(name="X_test", type="data")
+        artifact.add_file("X_test.npz")
+        self.wandb_run.log_artifact(artifact)
+
+        np.savetxt('y_train.txt', y_train)
+        artifact = wandb.Artifact(name="y_train", type="data")
+        artifact.add_file("y_train.txt")
+        self.wandb_run.log_artifact(artifact)
+
+        np.savetxt('y_test.txt', y_test)
+        artifact = wandb.Artifact(name="y_test", type="data")
+        artifact.add_file("y_test.txt")
+        self.wandb_run.log_artifact(artifact)
 
     def train(self):
         if self.sampler is not None:
@@ -408,14 +448,32 @@ class Model:
 
         logger.info(f"X_test: {self.X_test.shape}, y_test: {self.y_test.shape}")
 
-        self.clf.fit(self.X_train, self.le.transform(self.y_train))
+        if self.wandb_run.sweep_id:  # if we are running a grid search from wandb, use the hyperparameter options from there
+            self.clf.max_depth = wandb.config.max_depth
+            self.clf.colsample_bytree = wandb.config.colsample_bytree
+
+        self.clf.fit(
+            self.X_train,
+            self.le.transform(self.y_train),
+            callbacks=[WandbCallback(log_model=True)]
+        )
 
         logger.info("Model trained")
 
+        file = open('model_file.pkl', 'wb')
+        pickle.dump(self, file)
+        file.close()
+        artifact = wandb.Artifact(name="model_file.pkl", type="model")
+        artifact.add_file("model_file.pkl")
+        self.wandb_run.log_artifact(artifact)
+
     def evaluate_training(self, importance_cutoff=0.15):
+
         tracking_metrics = {}
 
         feature_names = self.get_human_readable_feature_names()
+
+        self.calculate_importance = True # changed for the purpose of trying out wandb
         if self.calculate_importance and len(feature_names):
             explainer = shap.TreeExplainer(self.clf)
             shap_values = explainer.shap_values(self.X_train)
@@ -445,6 +503,20 @@ class Model:
             important_features = self.get_important_features(
                 importance_cutoff, shap_values
             )
+
+            self.wandb_run.log({"feature_importance_image" : wandb.Image("feature_importance.png")})
+
+            ## How do do a custom feature importance chart according to Tim at wandb
+            booster = self.clf.get_booster()
+            feature_importance_df = pd.DataFrame(booster.get_score(fmap='', importance_type='weight').items(),
+                              columns=["feature_name", "feature_importance"])
+            feature_importance_df.sort_values("feature_importance", ignore_index=True, inplace=True)
+            feature_importance_df = feature_importance_df.reset_index().rename(columns={"index": "rank"})
+            fields = {"rank order": "rank", "feature name": "feature_name", "feature importance": "feature_importance"}
+            my_custom_chart = wandb.plot_table(vega_spec_name="mlops-mozilla/feature_importance",
+                                               data_table=wandb.Table(dataframe=feature_importance_df),
+                                               fields=fields)
+            wandb.log({"feature-importance-plot-from-wandb": my_custom_chart})
 
             self.print_feature_importances(important_features)
 
@@ -588,6 +660,7 @@ class Model:
             with open(f"{self.__class__.__name__.lower()}_data_y", "wb") as f:
                 pickle.dump(self.y, f, protocol=pickle.HIGHEST_PROTOCOL)
 
+        wandb.log(tracking_metrics)
         return tracking_metrics
 
     @staticmethod
@@ -599,16 +672,16 @@ class Model:
         return classes
 
     def classify(
-        self,
-        items,
-        probabilities=False,
-        importances=False,
-        importance_cutoff=0.15,
-        background_dataset=None,
+            self,
+            items,
+            probabilities=False,
+            importances=False,
+            importance_cutoff=0.15,
+            background_dataset=None,
     ):
         assert items is not None
         assert (
-            self.extraction_pipeline is not None and self.clf is not None
+                self.extraction_pipeline is not None and self.clf is not None
         ), "The module needs to be initialized first"
 
         if not isinstance(items, list):
