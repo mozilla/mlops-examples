@@ -2,6 +2,9 @@ import requests
 from metaflow import FlowSpec, step, kubernetes, card, current
 from metaflow.plugins.cards.card_modules.components import Markdown, Image
 
+import os
+import sys
+sys.path.insert(0, f"{os.getcwd().split('bugbug/')[0]}/bugbug")
 from bugbug import db
 from bugbug.metaflow_utils import get_confusion_matrix_component
 from bugbug.models.spambug import SpamBugModel
